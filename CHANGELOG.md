@@ -55,6 +55,9 @@ a service component in the same application
 - Add component to audit interceptor so that audit messages can distinguish between components even
 when they are deployed in a single WAR.
 
+### Removed
+- org.apache.commons commons-lang3 dependency from core
+
 ## [2.0.0-rc5] - 2017-06-20
 
 ### Changed
