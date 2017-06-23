@@ -54,6 +54,7 @@ a service component in the same application
 - Improved logging for annotation scanning
 - Add component to audit interceptor so that audit messages can distinguish between components even
 when they are deployed in a single WAR.
+- Replace usage of Pair in InterceptorChainProvider with PriorityInterceptorType
 
 ## [2.0.0-rc5] - 2017-06-20
 

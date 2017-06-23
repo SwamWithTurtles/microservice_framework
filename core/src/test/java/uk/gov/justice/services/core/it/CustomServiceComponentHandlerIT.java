@@ -27,8 +27,8 @@ import uk.gov.justice.services.core.dispatcher.ServiceComponentObserver;
 import uk.gov.justice.services.core.dispatcher.SystemUserUtil;
 import uk.gov.justice.services.core.envelope.EnvelopeValidationExceptionHandlerProducer;
 import uk.gov.justice.services.core.enveloper.Enveloper;
-import uk.gov.justice.services.core.extension.ServiceComponentScanner;
 import uk.gov.justice.services.core.extension.BeanInstantiater;
+import uk.gov.justice.services.core.extension.ServiceComponentScanner;
 import uk.gov.justice.services.core.interceptor.Interceptor;
 import uk.gov.justice.services.core.interceptor.InterceptorCache;
 import uk.gov.justice.services.core.interceptor.InterceptorChain;
@@ -37,6 +37,7 @@ import uk.gov.justice.services.core.interceptor.InterceptorChainProcessor;
 import uk.gov.justice.services.core.interceptor.InterceptorChainProcessorProducer;
 import uk.gov.justice.services.core.interceptor.InterceptorChainProvider;
 import uk.gov.justice.services.core.interceptor.InterceptorContext;
+import uk.gov.justice.services.core.interceptor.PriorityInterceptorType;
 import uk.gov.justice.services.core.json.DefaultJsonSchemaValidator;
 import uk.gov.justice.services.core.json.JsonSchemaLoader;
 import uk.gov.justice.services.core.requester.RequesterProducer;
@@ -56,8 +57,6 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.openejb.jee.Application;
 import org.apache.openejb.jee.WebApp;
 import org.apache.openejb.junit.ApplicationComposer;
@@ -172,9 +171,9 @@ public class CustomServiceComponentHandlerIT {
         }
 
         @Override
-        public List<Pair<Integer, Class<? extends Interceptor>>> interceptorChainTypes() {
-            final List<Pair<Integer, Class<? extends Interceptor>>> interceptorTypes = new ArrayList<>();
-            interceptorTypes.add(new ImmutablePair<>(1, TestInterceptor.class));
+        public List<PriorityInterceptorType> interceptorChainTypes() {
+            final List<PriorityInterceptorType> interceptorTypes = new ArrayList<>();
+            interceptorTypes.add(new PriorityInterceptorType(1, TestInterceptor.class));
             return interceptorTypes;
         }
     }

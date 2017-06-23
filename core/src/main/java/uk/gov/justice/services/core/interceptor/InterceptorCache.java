@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -19,10 +20,6 @@ import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.spi.Bean;
 import javax.inject.Inject;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-
 
 /**
  * Handles the adding of {@link Interceptor} to a master queue and creating {@link
@@ -41,7 +38,7 @@ public class InterceptorCache {
 
     @PostConstruct
     public void initialise() {
-        final HashMap<String, Set<Pair<Integer, Interceptor>>> orderedComponentInterceptors = new HashMap<>();
+        final HashMap<String, Set<PriorityInterceptorInstance>> orderedComponentInterceptors = new HashMap<>();
         final Map<Class<?>, Interceptor> interceptorInstancesByType = interceptorInstancesByType();
 
         interceptorChainObserver.getInterceptorChainProviderBeans().forEach(providerBean ->
@@ -79,45 +76,78 @@ public class InterceptorCache {
     }
 
     private void createInterceptorChainsByComponent(final Map<Class<?>, Interceptor> interceptorInstancesByType,
-                                                    final HashMap<String, Set<Pair<Integer, Interceptor>>> orderedComponentInterceptors,
+                                                    final HashMap<String, Set<PriorityInterceptorInstance>> orderedComponentInterceptors,
                                                     final Bean<?> providerBean) {
         final InterceptorChainProvider interceptorChainProvider = (InterceptorChainProvider) beanInstantiater.instantiate(providerBean);
 
-        final Set<Pair<Integer, Interceptor>> interceptors = newOrCachedInterceptorChain(interceptorChainProvider, orderedComponentInterceptors);
+        final Set<PriorityInterceptorInstance> interceptors = newOrCachedInterceptorChain(interceptorChainProvider, orderedComponentInterceptors);
 
         interceptorChainProvider.interceptorChainTypes().forEach(interceptorChainType -> {
 
-            final Integer priority = interceptorChainType.getLeft();
-            interceptors.add(new ImmutablePair<>(priority, interceptorInstanceFrom(interceptorInstancesByType, interceptorChainType)));
+            final Integer priority = interceptorChainType.getPriority();
+            interceptors.add(new PriorityInterceptorInstance(priority, interceptorInstanceFrom(interceptorInstancesByType, interceptorChainType.getInterceptorType())));
         });
 
         orderedComponentInterceptors.put(interceptorChainProvider.component(), interceptors);
     }
 
-    private Interceptor interceptorInstanceFrom(final Map<Class<?>, Interceptor> interceptorInstancesByType, final Pair<Integer, Class<? extends Interceptor>> interceptorChainType) {
-        final Interceptor interceptorInstance = interceptorInstancesByType.get(interceptorChainType.getRight());
+    private Interceptor interceptorInstanceFrom(final Map<Class<?>, Interceptor> interceptorInstancesByType, final Class<? extends Interceptor> interceptorChainType) {
+        final Interceptor interceptorInstance = interceptorInstancesByType.get(interceptorChainType);
         if (interceptorInstance == null) {
-            throw new InterceptorCacheException(format("Could not instantiate interceptor bean of type: %s", interceptorChainType.getRight().getName()));
+            throw new InterceptorCacheException(format("Could not instantiate interceptor bean of type: %s", interceptorChainType.getName()));
         }
         return interceptorInstance;
     }
 
-    private void createComponentInterceptorsFrom(final HashMap<String, Set<Pair<Integer, Interceptor>>> orderedComponentInterceptors) {
+    private void createComponentInterceptorsFrom(final HashMap<String, Set<PriorityInterceptorInstance>> orderedComponentInterceptors) {
         orderedComponentInterceptors.forEach((key, value) -> {
             final Deque<Interceptor> interceptors = value.stream()
-                    .map(Pair::getRight)
+                    .map(PriorityInterceptorInstance::getInterceptor)
                     .collect(toCollection(LinkedList::new));
 
             componentInterceptors.put(key, interceptors);
         });
     }
 
-    private Set<Pair<Integer, Interceptor>> newOrCachedInterceptorChain(final InterceptorChainProvider interceptorChainProvider,
-                                                                        final HashMap<String, Set<Pair<Integer, Interceptor>>> orderedComponentInterceptors) {
+    private Set<PriorityInterceptorInstance> newOrCachedInterceptorChain(final InterceptorChainProvider interceptorChainProvider,
+                                                                         final HashMap<String, Set<PriorityInterceptorInstance>> orderedComponentInterceptors) {
         if (orderedComponentInterceptors.containsKey(interceptorChainProvider.component())) {
             return orderedComponentInterceptors.get(interceptorChainProvider.component());
         }
 
-        return new TreeSet<>(comparing(Pair::getLeft));
+        return new TreeSet<>(comparing(PriorityInterceptorInstance::getPriority));
+    }
+
+    private class PriorityInterceptorInstance {
+
+        private final Integer priority;
+        private final Interceptor interceptor;
+
+        PriorityInterceptorInstance(final Integer priority, final Interceptor interceptor) {
+            this.priority = priority;
+            this.interceptor = interceptor;
+        }
+
+        public Integer getPriority() {
+            return priority;
+        }
+
+        public Interceptor getInterceptor() {
+            return interceptor;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            final PriorityInterceptorInstance that = (PriorityInterceptorInstance) o;
+            return Objects.equals(priority, that.priority) &&
+                    Objects.equals(interceptor, that.interceptor);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(priority, interceptor);
+        }
     }
 }
